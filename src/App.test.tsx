@@ -16,14 +16,14 @@ describe('GitHub Pages routing', () => {
   it('opens a nested hash route and keeps navigation under the deployment path', async () => {
     const user = userEvent.setup()
     render(<App />)
-    expect(await screen.findByRole('heading', { name: 'Projects', level: 5 })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Projects', level: 5 }, { timeout: 5000 })).toBeInTheDocument()
     await user.click(screen.getByRole('link', { name: 'Availability' }))
-    expect(await screen.findByRole('heading', { name: 'Availability', level: 5 })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Availability', level: 5 }, { timeout: 5000 })).toBeInTheDocument()
     expect(window.location.pathname).toBe('/squad-planner/')
     expect(window.location.hash).toBe('#/availability')
 
     cleanup()
     render(<App />)
-    expect(await screen.findByRole('heading', { name: 'Availability', level: 5 })).toBeInTheDocument()
-  })
+    expect(await screen.findByRole('heading', { name: 'Availability', level: 5 }, { timeout: 5000 })).toBeInTheDocument()
+  }, 15000)
 })

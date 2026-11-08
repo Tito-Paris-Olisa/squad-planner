@@ -31,6 +31,8 @@ To enable hosting:
 
 The workflow tests, lints, builds, and publishes the app on each push to `main`. You can also launch it manually using **Actions → Deploy GitHub Pages → Run workflow**. A workflow is not mandatory for Pages, but publishing from a branch would require building and publishing the compiled output separately; Pages cannot run the TypeScript source directly.
 
+CI limits tests to two workers to reduce contention on hosted runners. The full-calendar routing and availability CRUD tests allow up to 15 seconds, with five-second waits for lazy-loaded pages; other tests keep their default timeouts. Run `CI=true npm test` locally to use the same worker limit.
+
 To check the production build locally, run `npm run build` followed by `npm run preview`, then open `http://localhost:4173/squad-planner/`.
 
 Hosting does not add shared storage or authentication. Workspace data remains specific to each browser and origin, so localhost data will not automatically appear on the hosted site. Treat the published app as publicly accessible; do not commit real workforce data or secrets.

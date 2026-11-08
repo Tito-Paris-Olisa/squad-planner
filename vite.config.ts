@@ -8,5 +8,6 @@ export default defineConfig(({ mode }) => ({
   test: {
     environment: 'jsdom',
     setupFiles: './src/testSetup.ts',
+    maxWorkers: process.env.CI ? 2 : undefined,
   },
 }))

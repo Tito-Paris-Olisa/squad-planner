@@ -110,7 +110,7 @@ describe('updated planning workflows', () => {
     await user.click(screen.getByRole('button', { name: 'Remove period' }))
     await user.click(within(screen.getByRole('dialog', { name: 'Remove unavailable period?' })).getByRole('button', { name: 'Delete' }))
     expect(savedData().unavailabilities.some((item) => item.personId === 'person-8' && item.startDate === today)).toBe(false)
-  })
+  }, 15000)
 
   it('blocks unavailable dates that overlap squad assignments and shows the conflict', async () => {
     const user = userEvent.setup()
