@@ -1,5 +1,6 @@
 import { lazy, Suspense, useMemo, useState } from 'react'
 import { BrowserRouter, NavLink, Route, Routes, useLocation } from 'react-router-dom'
+import { format, parseISO } from 'date-fns'
 import {
   AppBar, Avatar, Box, Button, CssBaseline, Divider, IconButton, List, ListItemButton,
   ListItemIcon, ListItemText, Toolbar, Tooltip, Typography,
@@ -58,11 +59,11 @@ const navigation = [
   { label: 'Availability', path: '/availability', icon: <EventAvailable /> },
   { label: 'People & Teams', path: '/people', icon: <MenuBook /> },
 ]
-const currentDateLabel = new Intl.DateTimeFormat('en', { weekday: 'short', month: 'short', day: 'numeric' }).format(new Date())
 
 function Shell() {
   const location = useLocation()
-  const { resetDemoData } = useAppData()
+  const { resetDemoData, today } = useAppData()
+  const currentDateLabel = format(parseISO(today), 'EEE, MMM d')
   const [resetOpen, setResetOpen] = useState(false)
   const currentPage = useMemo(
     () => navigation.find((item) => item.path === location.pathname)?.label ?? 'Dashboard',

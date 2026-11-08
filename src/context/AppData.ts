@@ -3,6 +3,7 @@ import type { AppData } from '../types'
 
 export interface AppDataContextValue {
   data: AppData
+  today: string
   updateData: (update: (current: AppData) => AppData) => void
   resetDemoData: () => void
 }
