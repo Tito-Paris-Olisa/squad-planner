@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { format } from 'date-fns'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppDataProvider } from '../context/AppDataContext'
 import { STORAGE_KEY } from '../data/storage'
 import { AvailabilityPage, DashboardPage, SquadsPage, TimelinePage } from './AppPages'
@@ -15,8 +15,13 @@ function renderPage(page: React.ReactNode) {
 }
 
 describe('updated planning workflows', () => {
-  beforeEach(() => { localStorage.clear(); window.history.replaceState(null, '', '/') })
-  afterEach(cleanup)
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 10, 9))
+    localStorage.clear()
+    window.history.replaceState(null, '', '/')
+  })
+  afterEach(() => { cleanup(); vi.useRealTimers() })
 
   it('removes the dashboard create action', () => {
     renderPage(<DashboardPage />)
@@ -84,7 +89,7 @@ describe('updated planning workflows', () => {
     const user = userEvent.setup()
     renderPage(<AvailabilityPage />)
     const table = screen.getByRole('table', { name: 'Everyone’s availability' })
-    expect(within(table).getAllByRole('row')).toHaveLength(16)
+    expect(within(table).getAllByRole('row')).toHaveLength(17)
     expect(screen.queryByText('Unavailable periods')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Mark unavailable' }))
     await user.type(screen.getByRole('combobox', { name: 'Person' }), 'Noah')
@@ -129,5 +134,24 @@ describe('updated planning workflows', () => {
     view.unmount()
     renderPage(<AvailabilityPage />)
     expect(screen.getByRole('region', { name: 'Team availability calendar' })).toHaveAttribute('tabindex', '0')
+  })
+
+  it('shows weekdays with ISO week groups in both calendars', async () => {
+    const user = userEvent.setup()
+    const view = renderPage(<TimelinePage />)
+    const timeline = screen.getByRole('region', { name: 'Squad timeline calendar' })
+    expect(within(timeline).getByText('W46')).toBeInTheDocument()
+    expect(within(timeline).queryByText('Sat')).not.toBeInTheDocument()
+    expect(within(timeline).queryByText('Sun')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Month' }))
+    expect(within(timeline).getByText('W45')).toBeInTheDocument()
+    expect(within(timeline).getByText('W49')).toBeInTheDocument()
+    view.unmount()
+    renderPage(<AvailabilityPage />)
+    const table = screen.getByRole('table', { name: 'Everyone’s availability' })
+    expect(within(table).getByRole('columnheader', { name: 'W46' })).toHaveAttribute('colspan', '5')
+    expect(within(table).getByRole('columnheader', { name: 'W49' })).toHaveAttribute('colspan', '5')
+    expect(within(table).queryByText('Sat')).not.toBeInTheDocument()
+    expect(within(table).queryByText('Sun')).not.toBeInTheDocument()
   })
 })

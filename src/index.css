@@ -61,29 +61,34 @@ button, input, select, textarea { font: inherit; }
 .empty-state { text-align: center; padding: 50px 20px !important; color: #64748b; }
 .empty-state-icon { width: 48px; height: 48px; display: grid; place-items: center; margin: 0 auto 12px; border-radius: 14px; background: #eff6ff; color: #2563eb; }
 .timeline-wrap { overflow: auto; max-height: clamp(240px, calc(100dvh - 290px), 560px); overscroll-behavior: contain; padding-bottom: 8px; }
-.timeline-grid { min-width: 840px; }
+.timeline-grid { min-width: 840px; overflow-anchor: none; }
 .timeline-header, .timeline-row { display: grid; grid-template-columns: 220px repeat(14, minmax(44px, 1fr)); }
 .timeline-header { position: sticky; top: 0; z-index: 4; background: #fff; border-bottom: 1px solid #e2e8f0; }
 .timeline-header > div { text-align: center; color: #64748b; font-size: 11px; padding: 10px 2px; }
 .timeline-project { position: sticky; left: 0; z-index: 2; background: #fff; padding: 13px 10px; font-size: 12px; border-bottom: 1px solid #f1f5f9; }
 .timeline-header > div:first-child { position: sticky; left: 0; z-index: 3; background: #fff; }
-.timeline-cells { position: relative; border-bottom: 1px solid #f1f5f9; min-height: 48px; }
+.timeline-cells { position: relative; z-index: 0; border-bottom: 1px solid #f1f5f9; min-height: 48px; }
 .timeline-cells::before { content: ''; position: absolute; inset: 0; background-image: linear-gradient(to right, #f1f5f9 1px, transparent 1px); background-size: calc(100% / var(--timeline-days)) 100%; pointer-events: none; }
 .timeline-bar { position: absolute; top: 10px; height: 27px; border-radius: 6px; border: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; text-align: left; padding: 0 9px; color: #1d4ed8; background: #dbeafe; font-size: 11px; font-weight: 650; cursor: pointer; z-index: 1; }
 .people-groups { display: grid; gap: 14px; }
 .person-chip { display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #f1f5f9; padding: 12px 0; }
 .person-chip:last-child { border-bottom: 0; }
-.availability-table { width: max-content !important; min-width: 100%; border-collapse: separate !important; border-spacing: 0; }
-.availability-table thead th { position: sticky; top: 0; z-index: 4; background: #f8fafc; text-align: center; }
+.availability-table { table-layout: fixed; min-width: 100%; border-collapse: separate !important; border-spacing: 0; overflow-anchor: none; }
+.availability-table thead { position: sticky; top: 0; z-index: 4; }
+.availability-table thead th { background: #f8fafc; text-align: center; }
 .availability-table .availability-person { position: sticky; left: 0; z-index: 2; min-width: 220px; max-width: 220px; background: #fff; border-right: 1px solid #e2e8f0; text-align: left; }
 .availability-table thead .availability-person { z-index: 5; background: #f8fafc; }
-.availability-table td, .availability-table thead th:not(.availability-person) { min-width: 112px; width: 112px; max-width: 112px; border-right: 1px solid #e2e8f0; text-align: center; }
+.availability-table td, .availability-table thead th:not(.availability-person) { border-right: 1px solid #e2e8f0; text-align: center; }
 .availability-day { height: 64px; font-size: 11px !important; }
 .availability-day.available { background: #f0fdf4; color: #15803d; }
 .availability-day.reserved { background: #eff6ff; color: #1d4ed8; }
 .availability-day.unavailable { background: #fef2f2; color: #b91c1c; }
 .availability-table .availability-today { box-shadow: inset 2px 0 #2563eb, inset -2px 0 #2563eb; }
 .availability-table .availability-period-button { min-width: 0; min-height: 32px; padding: 2px; font-size: 10px; line-height: 1.4; color: inherit; }
+.calendar-week-label { background: #eff6ff !important; color: #1d4ed8 !important; font-weight: 700 !important; border-left: 2px solid #cbd5e1; border-bottom: 1px solid #cbd5e1; }
+.timeline-header .calendar-week-label { padding: 6px 2px; }
+.calendar-week-start { border-left: 2px solid #cbd5e1 !important; }
+.timeline-week-boundary { position: absolute; top: 0; bottom: 0; border-left: 2px solid #cbd5e1; pointer-events: none; z-index: 2; }
 .conflict-text { color: #b91c1c; font-size: 12px; }
 
 @media (max-width: 1100px) {

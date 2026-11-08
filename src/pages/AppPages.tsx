@@ -1,8 +1,7 @@
 import { useId, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
-  addDays, addMonths, addWeeks, differenceInCalendarDays, endOfMonth, endOfWeek, format,
-  eachDayOfInterval, isSameDay, parseISO, startOfMonth, startOfWeek,
+  addDays, format, isSameDay, startOfWeek,
 } from 'date-fns'
 import {
   Avatar, Box, Button, Card, CardActionArea, CardContent, Checkbox, Chip, Dialog, DialogActions,
@@ -34,6 +33,8 @@ import {
   PersonFormDialog, ProjectFormDialog, RoleLabel, SquadDetailsDialog, StatusChip, TeamFormDialog,
 } from '../components/Shared'
 import { getPersonReservations, getSchedulingConflicts } from '../utils/scheduling'
+import { getVisibleDateSpan, groupCalendarWeeks } from '../utils/calendar'
+import { useCalendarScroll } from '../hooks/useCalendarScroll'
 
 const todayDate = () => new Date()
 const timestampNow = () => new Date().toISOString()
@@ -350,36 +351,34 @@ function SquadFormDialog({ open, squad, preselectedProjectId, onClose, onSave }:
 
 export function TimelinePage() {
   const { data } = useAppData()
-  const [view, setView] = useState<'week' | 'month'>('week')
-  const [anchorDate, setAnchorDate] = useState(todayDate)
-  const start = view === 'week' ? startOfWeek(anchorDate, { weekStartsOn: 1 }) : startOfWeek(startOfMonth(anchorDate), { weekStartsOn: 1 })
-  const end = view === 'week' ? addDays(start, 6) : endOfWeek(endOfMonth(startOfMonth(anchorDate)), { weekStartsOn: 1 })
-  const dayCount = differenceInCalendarDays(end, start) + 1
-  const days = Array.from({ length: dayCount }, (_, index) => addDays(start, index))
+  const { days, dayWidth, view, setView, anchorDate, viewportRef, onScroll, goToDate, navigate } = useCalendarScroll('week', 64)
+  const start = startOfWeek(anchorDate, { weekStartsOn: 1 })
+  const dayCount = days.length
+  const weeks = groupCalendarWeeks(days)
   const [detailId, setDetailId] = useState<string | null>(null)
 
   return <>
     <PageHeading title="Squad timeline" description="See how planned squads overlap across teams and dates." action={<Stack direction="row" spacing={1} alignItems="center">
-      <Button onClick={() => setAnchorDate(todayDate())}>Today</Button><IconButton aria-label="Previous range" onClick={() => setAnchorDate((date) => view === 'week' ? addWeeks(date, -1) : addMonths(date, -1))}><ArrowBack /></IconButton><IconButton aria-label="Next range" onClick={() => setAnchorDate((date) => view === 'week' ? addWeeks(date, 1) : addMonths(date, 1))}><ArrowForward /></IconButton>
+      <Button onClick={() => goToDate(todayDate())}>Today</Button><IconButton aria-label="Previous range" onClick={() => navigate(-1)}><ArrowBack /></IconButton><IconButton aria-label="Next range" onClick={() => navigate(1)}><ArrowForward /></IconButton>
       <ToggleButtonGroup size="small" exclusive value={view} onChange={(_, value: 'week' | 'month' | null) => value && setView(value)}><ToggleButton value="week">Week</ToggleButton><ToggleButton value="month">Month</ToggleButton></ToggleButtonGroup>
     </Stack>} />
     <Card sx={{ p: 2 }}>
-      <Typography variant="subtitle1" fontWeight={650} sx={{ mb: 1 }}>{format(start, 'MMMM d')} – {format(days[days.length - 1], 'MMMM d, yyyy')}</Typography>
-      <Box className="timeline-wrap" role="region" aria-label="Squad timeline calendar" tabIndex={0}><Box className="timeline-grid" sx={{ minWidth: view === 'month' ? 1120 : 840 }}>
-        <Box className="timeline-header" sx={{ gridTemplateColumns: `220px repeat(${dayCount}, minmax(32px, 1fr))` }}>
-          <Box sx={{ textAlign: 'left !important', pl: 1 }}>SQUAD / PROJECT</Box>
-          {days.map((day) => <Box key={day.toISOString()} sx={{ bgcolor: isSameDay(day, todayDate()) ? '#EFF6FF' : undefined, color: isSameDay(day, todayDate()) ? '#2563EB !important' : undefined }}><Typography variant="caption" display="block">{format(day, 'EEE')}</Typography>{format(day, 'd')}</Box>)}
+      <Typography variant="subtitle1" fontWeight={650} sx={{ mb: 1 }}>{view === 'week' ? `${format(start, 'MMMM d')} – ${format(addDays(start, 4), 'MMMM d, yyyy')}` : format(anchorDate, 'MMMM yyyy')}</Typography>
+      <Box className="timeline-wrap" ref={viewportRef} onScroll={onScroll} role="region" aria-label="Squad timeline calendar" tabIndex={0}><Box className="timeline-grid" sx={{ width: 220 + dayCount * dayWidth }}>
+        <Box className="timeline-header" sx={{ gridTemplateColumns: `220px repeat(${dayCount}, ${dayWidth}px)` }}>
+          <Box sx={{ textAlign: 'left !important', pl: 1, gridRow: '1 / 3', display: 'flex', alignItems: 'center' }}>SQUAD / PROJECT</Box>
+          {weeks.map((week) => <Box key={week.key} className="calendar-week-label" title={`ISO week ${week.label.slice(1)}, ${week.year}`} sx={{ gridColumn: `${week.startIndex + 2} / span ${week.days.length}` }}>{week.label}</Box>)}
+          {days.map((day, index) => <Box key={day.toISOString()} className={weeks.some((week) => week.startIndex === index) ? 'calendar-week-start' : ''} sx={{ gridRow: 2, gridColumn: index + 2, bgcolor: isSameDay(day, todayDate()) ? '#EFF6FF' : undefined, color: isSameDay(day, todayDate()) ? '#2563EB !important' : undefined }}><Typography variant="caption" display="block">{format(day, 'EEE')}</Typography>{format(day, 'MMM d')}</Box>)}
         </Box>
         {data.squads.map((squad) => {
           const project = data.projects.find((item) => item.id === squad.projectId)
-          const startOffset = Math.max(0, differenceInCalendarDays(parseISO(squad.startDate), start))
-          const endOffset = Math.min(dayCount - 1, differenceInCalendarDays(parseISO(squad.endDate), start))
-          const isVisible = parseISO(squad.endDate) >= start && parseISO(squad.startDate) <= days[days.length - 1]
+          const span = getVisibleDateSpan(days, squad.startDate, squad.endDate)
           const members = data.assignments.filter((item) => item.squadId === squad.id).map((item) => data.people.find((person) => person.id === item.personId)?.name).filter(Boolean)
-          return <Box key={squad.id} className="timeline-row" sx={{ gridTemplateColumns: `220px repeat(${dayCount}, minmax(32px, 1fr))` }}>
+          return <Box key={squad.id} className="timeline-row" sx={{ gridTemplateColumns: `220px repeat(${dayCount}, ${dayWidth}px)` }}>
             <Box className="timeline-project"><Typography variant="body2" fontWeight={650}>{project?.name ?? 'Unknown project'}</Typography><Typography variant="caption" color="text.secondary" noWrap>{teamName(data, project?.teamId ?? '')} · {members.map((name) => initials(name ?? '')).join(' ') || 'No members'}</Typography></Box>
             <Box className="timeline-cells" sx={{ gridColumn: '2 / -1', '--timeline-days': dayCount }}>
-              {isVisible && <Tooltip title={<>{project?.name} · {formatDate(squad.startDate)} – {formatDate(squad.endDate)}<br />{members.join(', ') || 'No members assigned'}</>}><Box component="button" className="timeline-bar" onClick={() => setDetailId(squad.id)} sx={{ left: `${(startOffset / dayCount) * 100}%`, width: `${((endOffset - startOffset + 1) / dayCount) * 100}%` }}>{project?.name}</Box></Tooltip>}
+              {weeks.map((week) => <Box key={week.key} className="timeline-week-boundary" sx={{ left: `${week.startIndex / dayCount * 100}%` }} />)}
+              {span && <Tooltip title={<>{project?.name} · {formatDate(squad.startDate)} – {formatDate(squad.endDate)}<br />{members.join(', ') || 'No members assigned'}</>}><Box component="button" className="timeline-bar" onClick={() => setDetailId(squad.id)} sx={{ left: `${(span.startIndex / dayCount) * 100}%`, width: `${(span.count / dayCount) * 100}%` }}>{project?.name}</Box></Tooltip>}
             </Box>
           </Box>
         })}
@@ -394,12 +393,12 @@ const reasons: UnavailabilityReason[] = ['Leave / Holiday', 'Training / Workshop
 
 export function AvailabilityPage() {
   const { data, updateData } = useAppData()
-  const [month, setMonth] = useState(todayDate)
+  const { days, dayWidth, anchorDate: month, viewportRef, onScroll, goToDate, navigate } = useCalendarScroll('month')
   const [editing, setEditing] = useState<AppData['unavailabilities'][number] | undefined>()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [removeTarget, setRemoveTarget] = useState<AppData['unavailabilities'][number] | undefined>()
   const [notice, setNotice] = useState('')
-  const days = eachDayOfInterval({ start: startOfMonth(month), end: endOfMonth(month) })
+  const weeks = groupCalendarWeeks(days)
 
   const openNew = () => {
     setEditing(undefined)
@@ -418,10 +417,10 @@ export function AvailabilityPage() {
     <Card sx={{ p: 2.5 }}>
       <Stack direction="row" flexWrap="wrap" justifyContent="space-between" gap={2} sx={{ mb: 2 }}>
         <Stack direction="row" alignItems="center" spacing={1}>
-          <Button onClick={() => setMonth(todayDate())}>Today</Button>
-          <IconButton aria-label="Previous month" onClick={() => setMonth((value) => addMonths(value, -1))}><ArrowBack /></IconButton>
+          <Button onClick={() => goToDate(todayDate())}>Today</Button>
+          <IconButton aria-label="Previous month" onClick={() => navigate(-1)}><ArrowBack /></IconButton>
           <Typography fontWeight={650}>{format(month, 'MMMM yyyy')}</Typography>
-          <IconButton aria-label="Next month" onClick={() => setMonth((value) => addMonths(value, 1))}><ArrowForward /></IconButton>
+          <IconButton aria-label="Next month" onClick={() => navigate(1)}><ArrowForward /></IconButton>
         </Stack>
         <Stack direction="row" alignItems="center" gap={1} flexWrap="wrap">
           <Chip size="small" label="Available" sx={{ bgcolor: '#F0FDF4', color: '#15803D' }} />
@@ -429,12 +428,15 @@ export function AvailabilityPage() {
           <Chip size="small" label="Unavailable" sx={{ bgcolor: '#FEF2F2', color: '#B91C1C' }} />
         </Stack>
       </Stack>
-      <Box className="timeline-wrap" role="region" aria-label="Team availability calendar" tabIndex={0}>
-        <Table className="availability-table" aria-label="Everyone’s availability" size="small">
+      <Box className="timeline-wrap" ref={viewportRef} onScroll={onScroll} role="region" aria-label="Team availability calendar" tabIndex={0}>
+        <Table className="availability-table" aria-label="Everyone’s availability" size="small" sx={{ width: 220 + days.length * dayWidth }}>
+          <colgroup><col style={{ width: 220 }} />{days.map((day) => <col key={day.toISOString()} style={{ width: dayWidth }} />)}</colgroup>
           <TableHead><TableRow>
-            <TableCell className="availability-person">Person / home team</TableCell>
-            {days.map((day) => <TableCell key={format(day, 'yyyy-MM-dd')} className={isSameDay(day, todayDate()) ? 'availability-today' : ''}>
-              <Typography variant="caption" display="block">{format(day, 'EEE')}</Typography>{format(day, 'd')}
+            <TableCell className="availability-person" rowSpan={2}>Person / home team</TableCell>
+            {weeks.map((week) => <TableCell key={week.key} colSpan={week.days.length} scope="colgroup" className="calendar-week-label" title={`ISO week ${week.label.slice(1)}, ${week.year}`}>{week.label}</TableCell>)}
+          </TableRow><TableRow>
+            {days.map((day, index) => <TableCell key={format(day, 'yyyy-MM-dd')} className={`${isSameDay(day, todayDate()) ? 'availability-today' : ''} ${weeks.some((week) => week.startIndex === index) ? 'calendar-week-start' : ''}`}>
+              <Typography variant="caption" display="block">{format(day, 'EEE')}</Typography>{format(day, 'MMM d')}
             </TableCell>)}
           </TableRow></TableHead>
           <TableBody>{data.people.map((person) => {
@@ -445,7 +447,7 @@ export function AvailabilityPage() {
                 <Typography variant="body2" fontWeight={600}>{person.name}{!person.active && ' (Inactive)'}</Typography>
                 <Typography variant="caption" color="text.secondary">{teamName(data, person.teamId)}</Typography>
               </TableCell>
-              {days.map((day) => {
+              {days.map((day, index) => {
                 const iso = format(day, 'yyyy-MM-dd')
                 const unavailable = periods.filter((period) => period.startDate <= iso && period.endDate >= iso)
                 const booked = reservations.filter((reservation) => reservation.startDate <= iso && reservation.endDate >= iso)
@@ -454,7 +456,7 @@ export function AvailabilityPage() {
                   ...unavailable.map((period) => `${period.reason} · ${formatDate(period.startDate)} – ${formatDate(period.endDate)}`),
                   ...booked.map((reservation) => `Squad: ${projectName(data, data.squads.find((squad) => squad.id === reservation.squadId)?.projectId ?? '')} · ${formatDate(reservation.startDate)} – ${formatDate(reservation.endDate)}`),
                 ]
-                return <TableCell key={iso} className={`availability-day ${unavailable.length ? 'unavailable' : booked.length ? 'reserved' : 'available'} ${isSameDay(day, todayDate()) ? 'availability-today' : ''}`}>
+                return <TableCell key={iso} className={`availability-day ${unavailable.length ? 'unavailable' : booked.length ? 'reserved' : 'available'} ${isSameDay(day, todayDate()) ? 'availability-today' : ''} ${weeks.some((week) => week.startIndex === index) ? 'calendar-week-start' : ''}`}>
                   <Tooltip title={details.length ? details.join('; ') : `${person.name} is available on ${formatDate(iso)}`}>
                     {unavailable.length ? <Stack>{unavailable.map((period) => <Button key={period.id} aria-label={`Edit unavailability for ${person.name} on ${iso}${unavailable.length > 1 ? `: ${period.reason} (${period.startDate} – ${period.endDate})` : ''}`} className="availability-period-button" onClick={() => { setEditing(period); setDialogOpen(true) }}>{period.reason}</Button>)}</Stack>
                       : <Box component="span" tabIndex={0}>{status}</Box>}
@@ -466,7 +468,7 @@ export function AvailabilityPage() {
         </Table>
         {!data.people.length && <EmptyState title="No people yet" description="Add people to see their availability here." />}
       </Box>
-      <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1.5 }}>Scroll across dates or down through people. Click an unavailable date to edit or remove its period.</Typography>
+      <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1.5 }}>Keep scrolling across dates to move between months, or scroll down through people. Click an unavailable date to edit or remove its period.</Typography>
     </Card>
     {dialogOpen && <UnavailabilityDialog initial={editing} onClose={() => { setDialogOpen(false); setEditing(undefined) }} onSave={savePeriod} onRemove={editing ? () => { setRemoveTarget(editing); setDialogOpen(false) } : undefined} />}
     <ConfirmationModal open={Boolean(removeTarget)} title="Remove unavailable period?" description="This will make these dates available for new squad assignments." onCancel={() => setRemoveTarget(undefined)} onConfirm={() => { if (removeTarget) updateData((current) => ({ ...current, unavailabilities: current.unavailabilities.filter((item) => item.id !== removeTarget.id) })); setRemoveTarget(undefined) }} />
