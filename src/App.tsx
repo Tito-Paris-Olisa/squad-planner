@@ -1,5 +1,5 @@
 import { lazy, Suspense, useMemo, useState } from 'react'
-import { BrowserRouter, NavLink, Route, Routes, useLocation } from 'react-router-dom'
+import { HashRouter, NavLink, Route, Routes, useLocation } from 'react-router-dom'
 import { format, parseISO } from 'date-fns'
 import {
   AppBar, Avatar, Box, Button, CssBaseline, Divider, IconButton, List, ListItemButton,
@@ -163,7 +163,7 @@ export default function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <AppDataProvider>
-        <BrowserRouter><Shell /></BrowserRouter>
+        <HashRouter><Shell /></HashRouter>
       </AppDataProvider>
     </ThemeProvider>
   )

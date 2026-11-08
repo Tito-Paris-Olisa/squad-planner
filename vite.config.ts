@@ -2,10 +2,11 @@ import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vitest/config'
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  base: mode === 'production' ? '/squad-planner/' : '/',
   plugins: [react()],
   test: {
     environment: 'jsdom',
     setupFiles: './src/testSetup.ts',
   },
-})
+}))
